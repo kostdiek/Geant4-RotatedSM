@@ -1,0 +1,293 @@
+//
+// ********************************************************************
+// * License and Disclaimer                                           *
+// *                                                                  *
+// * The  Geant4 software  is  copyright of the Copyright Holders  of *
+// * the Geant4 Collaboration.  It is provided  under  the terms  and *
+// * conditions of the Geant4 Software License,  included in the file *
+// * LICENSE and available at  http://cern.ch/geant4/license .  These *
+// * include a list of copyright holders.                             *
+// *                                                                  *
+// * Neither the authors of this software system, nor their employing *
+// * institutes,nor the agencies providing financial support for this *
+// * work  make  any representation or  warranty, express or implied, *
+// * regarding  this  software system or assume any liability for its *
+// * use.  Please see the license in the file  LICENSE  and URL above *
+// * for the full disclaimer and the limitation of liability.         *
+// *                                                                  *
+// * This  code  implementation is the result of  the  scientific and *
+// * technical work of the GEANT4 collaboration.                      *
+// * By using,  copying,  modifying or  distributing the software (or *
+// * any work based  on the software)  you  agree  to acknowledge its *
+// * use  in  resulting  scientific  publications,  and indicate your *
+// * acceptance of all terms of the Geant4 Software license.          *
+// ********************************************************************
+//
+/// \file radioactivedecay/rdecay01/src/DetectorConstruction.cc
+/// \brief Implementation of the DetectorConstruction class
+//
+//
+// $Id: DetectorConstruction.cc 68030 2013-03-13 13:51:27Z gcosmo $
+// 
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo...... 
+
+#include "DetectorConstruction.hh"//
+
+#include "G4Material.hh"//
+#include "G4NistManager.hh"//
+
+#include "G4Tubs.hh"
+#include "G4Box.hh"//
+#include "G4Cons.hh"
+#include "G4LogicalVolume.hh"//
+#include "G4PVPlacement.hh"//
+
+#include "G4AutoDelete.hh"
+#include "G4String.hh"
+#include "G4RotationMatrix.hh"
+
+#include "G4GeometryManager.hh"
+#include "G4PhysicalVolumeStore.hh"
+#include "G4LogicalVolumeStore.hh"
+#include "G4SolidStore.hh"
+
+#include "G4SDManager.hh"//
+#include "G4SDNeutralFilter.hh"
+#include "G4PSPassageTrackLength.hh"
+#include "G4MultiFunctionalDetector.hh"//
+#include "G4VPrimitiveScorer.hh"//
+#include "G4PSEnergyDeposit.hh"//
+#include "G4PSTrackLength.hh"//
+#include "G4VSDFilter.hh"
+#include "G4VisAttributes.hh"//
+#include "G4Colour.hh"//
+#include "G4PSFlatSurfaceCurrent.hh"
+#include "G4PSPassageCellCurrent.hh"
+#include "G4SDParticleFilter.hh"
+#include "G4SDKineticEnergyFilter.hh"
+#include "G4PSNofStep.hh"//
+
+#include "G4SystemOfUnits.hh"//
+#include "G4ios.hh"//
+
+
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+DetectorConstruction::DetectorConstruction()
+ :G4VUserDetectorConstruction(),
+  fCheckOverlaps(true)
+{;
+}
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+DetectorConstruction::~DetectorConstruction()
+{;}
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+G4VPhysicalVolume* DetectorConstruction::Construct()
+{
+  static const G4double pi = 3.14159265358979323846;
+  //
+  // define Air and Pyrex
+  //   
+  G4NistManager* NISTman= G4NistManager::Instance();
+  G4Material* fAir   = NISTman->FindOrBuildMaterial("G4_AIR"); 
+  G4Material* fPyrex = NISTman->FindOrBuildMaterial("G4_Pyrex_Glass");
+  
+  //define HCl
+  //
+  G4double z, a, density;
+  G4String name, symbol;
+  G4int ncomponents, natoms;
+
+  a = 1.0079*g/mole;
+  G4Element* elH = new G4Element(name = "Hydrogen", symbol = "H", z=1., a);
+
+  a = 35.4527*g/mole;
+  G4Element* elCl = new G4Element(name = "Chlorine", symbol = "Cl", z= 17., a);
+ 
+  density = 1.017 *g/cm3; //density of 1 M of HCl acid
+  G4Material* fHCl = new G4Material(name = "Hydrochloric Acid", density, ncomponents = 2);
+  fHCl->AddElement(elH, natoms = 1);
+  fHCl->AddElement(elCl, natoms = 1);
+
+  // Define "liquid" iron (the density of 6.5 mg of Fe powder in volume of the drop
+  // But don't use this - we want to simulate the cylinder before chemisty which 
+  // was 1 mL of HCL acid and 241Am
+//  G4double Z, A, Density;
+//  Density = 0.1978*g/cm3;
+//  A = 55.85*g/mole;
+
+//  G4Material* ironl = new G4Material("liquidIron", Z=26., A, Density);
+
+
+  //----------------------------------------------------------------------
+  // World
+  //
+  G4double fWorldSize = 9* cm;
+  G4Box*  
+  worldSolid = new G4Box("World",                          //its name
+                   fWorldSize/2,fWorldSize/2,fWorldSize/2);//its size
+                   
+  G4LogicalVolume*                         
+  worldLogical = new G4LogicalVolume(worldSolid,             //its solid
+                                   fAir,                    //its material
+                                   "World");               //its name
+  G4VPhysicalVolume*                                   
+  fWorldPhys = new G4PVPlacement(0,                        //no rotation
+                                 G4ThreeVector(),          //at (0,0,0)
+                                 worldLogical,               //its logical volume
+                                 "World",                  //its name
+                                 0,                        //its mother  volume
+                                 false,                    //no boolean operation
+                                 0);                       //copy number
+ 
+  //----------------------------------------------------------------------
+  //HCL acid cylinder - labeled as iron but that's okay. Roll with it
+  //
+  
+  G4double iron_Rmin=0.0*mm;			//inner radius
+  G4double iron_Rmax=5.87*mm;			//outer radius - note solid cylinder
+  G4double iron_SPhi=0*radian;			//starting angle
+  G4double iron_DPhi=2*pi*radian;		//eding angle - note full cylinder
+  G4double iron_z=9.03*mm;			//half of the height of the cylinder
+
+  
+  
+
+  G4Tubs* solidIron= 
+	new G4Tubs("G4_Fe",		//its name
+		     iron_Rmin, 	//its inner radius
+		     iron_Rmax, 	//its outer radius	
+		     iron_z,		//half of it's length
+		     iron_SPhi, 	//its staring angle
+		     iron_DPhi);	//its ending angle
+
+  G4LogicalVolume* logicIron=
+	new G4LogicalVolume(solidIron,		//its solid
+			    fHCl,		//its material, the Am is 9 orders of magnitude less than HCl
+			    "IronLV");		//its name
+
+  //
+  //place HCl cylinder in world
+  //
+
+  new G4PVPlacement(0,					//its rotation
+		   G4ThreeVector(0, 0, 4.85*mm),	//its position, shifted to center the full vial with detector
+		   logicIron,				//its logical volumne
+		   "IronLV",				//its name
+		   worldLogical,				//its mother volumne
+		   false,				//no boolean operation
+		   0);					//copy number
+  //---------------------------------------------------------------------
+  //HCl cone with iron labels again... sorry
+  //
+ G4Cons* coneIron = new G4Cons("cIron",		//its name
+				 0* mm,			//its starting inner radius
+				 0* mm,			//its starting outer radius - comes to a point
+				 0* mm,			//its ending inner radius
+				 5.87* mm,		//its ending out radius
+				 4.85* mm,		//half its height	
+				 0,			//its starting angle
+				 2*pi*radian);		//its ending angle
+  G4LogicalVolume* logiccIron = new G4LogicalVolume(coneIron,		//its solid
+						     fHCl,		//its material
+						     "cIron");		//its name
+  	
+	new G4PVPlacement(0,						//its rotation
+			  G4ThreeVector(0,0,-9.03*mm),			//its position - shifted to exactly match bottom of HCl cylinder
+			  logiccIron,					//its logical volumne
+			  "cIron",					//its name
+			  worldLogical,					//its mother volume
+			  false,					//no boolean operation
+			  0);						//its copy number
+						
+
+  //----------------------------------------------------------------------
+  // Pyrex Glass Cylinder
+  //
+  G4Tubs*  
+  cylinderGlass = new G4Tubs("CGlass",                          //its name
+                  	     5.87* mm,				//its inner radius - matches the HCl cylinder outer radius
+   			     6.565* mm,				//its outer radius - 2.7 mm thick glass
+			     9.03* mm,				//half its height
+			     0* radian,				//its starting angle
+			     2*pi*radian);			//its ending angle
+               		   
+                   
+  G4LogicalVolume*                         
+  logicCGlass = new G4LogicalVolume(cylinderGlass,		 //its solid
+                                   fPyrex,                   	 //its material
+                                   "CGlassLV");             	 //its name
+	
+	new G4PVPlacement(0,                        				//no rotation
+                                 G4ThreeVector(0, 0, 4.85*mm),         	//at (0,0,0)
+                                 logicCGlass,               			//its logical volume
+                                 "CGlassLV",                  			//its name
+                                 worldLogical,                        		//its mother  volume
+                                 false,                    			//no boolean operation
+                                 0);                       			//copy number
+  //--------------------------------------------------------------------- 
+  // Pyrex glass cone
+  //
+  G4Cons* coneGlass = new G4Cons("cGlass",			//its name
+				 0* mm,				//its starting inner radius
+				 6.565* mm,			//its starting outer radius
+				 5.87* mm,			//its ending inner radius
+				 6.565* mm,			//its ending outer radius
+				 4.85* mm,			//half its height	
+				 0,				//its starting angle
+				 2*pi*radian);			//its ending angle
+ 
+  G4LogicalVolume* logiccGlass = new G4LogicalVolume(coneGlass,		//its solid
+						     fPyrex,		//its material
+						     "cGlass");		//its name
+  	
+	
+	new G4PVPlacement(0,					//its rotation
+			  G4ThreeVector(0,0,-9.03*mm),		//its position -shifted to match with glass cylinder
+			  logiccGlass,				//its logical volume
+			  "cGlass",				//its name
+			  worldLogical,				//its mother volumne
+			  false,				//no boolean operation
+			  0);					//its copy number
+						     
+ 
+
+  //
+  //Visualization attributes (This makes the World Invisible)
+  //
+  //worldLogical->SetVisAttributes (G4VisAttributes::Invisible);	//world is invisible
+ 
+  G4VisAttributes* simpleBoxVisAtt = new G4VisAttributes(G4Colour::Grey());
+
+  G4VisAttributes* simpleIron = new G4VisAttributes(G4Colour::Red());		//"Iron" or HCl cylinder and cone are colored red
+  G4VisAttributes* simpleGlass = new G4VisAttributes(G4Colour::Blue());		//Glass is colored blue
+  simpleBoxVisAtt->SetVisibility(true);			
+  logicIron->SetVisAttributes(simpleIron); 					//Iron or HCl is red  
+  logiccIron->SetVisAttributes(simpleIron);
+  
+  logicCGlass->SetVisAttributes (simpleGlass);					//Glass is blue
+  logiccGlass->SetVisAttributes (simpleGlass);       
+  //
+  //always return the physical World
+  //  
+ 
+  return fWorldPhys;
+ 
+}
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+void DetectorConstruction::ConstructSDandField()
+{;} 
+  
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+

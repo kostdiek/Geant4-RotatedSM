@@ -1,0 +1,19 @@
+#Macro test1.mac
+/control/verbose 0
+/tracking/verbose 0
+/event/verbose 0
+/gps/verbose 2
+/gps/particle gamma
+/gps/energy 58.6 keV
+/gps/pos/type Volume
+/gps/pos/shape Cylinder
+/gps/pos/centre 0 0 0 mm
+/gps/pos/radius 5. mm
+/gps/pos/halfz 0.1 mm
+#/gps/pos/confine Iron
+/gps/ang/type cos
+#/gps/ang/mintheta 0. deg
+#/gps/ang/maxtheta 180. deg
+#/gps/ang/minphi 0. deg
+#/gps/ang/maxphi 360. deg
+/run/beamOn 10
